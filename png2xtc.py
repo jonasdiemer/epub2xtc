@@ -8,7 +8,7 @@ import struct
 import hashlib
 from PIL import Image
 
-def png_to_xtg_bytes(img: Image.Image, force_size=(480,800), threshold=128):
+def png_to_xtg_bytes(img: Image.Image, force_size=(480,800), threshold=200):
     """Convert PIL image to XTG bytes (1-bit monochrome)."""
     if img.size != force_size:
         img = img.resize(force_size, Image.LANCZOS)
@@ -43,7 +43,7 @@ def png_to_xtg_bytes(img: Image.Image, force_size=(480,800), threshold=128):
     )
     return header + data
 
-def build_xtc(png_paths, out_path, read_direction=0, force_size=(480,800)):
+def build_xtc(png_paths, out_path, read_direction=0, thumbnail=0, force_size=(480,800)):
     """Build a proper XTC file."""
     xtg_blobs = []
     for p in png_paths:
@@ -56,26 +56,7 @@ def build_xtc(png_paths, out_path, read_direction=0, force_size=(480,800)):
     index_offset = header_size
     data_offset = index_offset + page_count * index_entry_size
 
-    # XTC header: <4sHHBBBBIQQQQ> little-endian
-    xtc_header = struct.pack(
-        "<4sHHBBBBIQQQQ",
-        b"XTC\x00",         # mark
-        0x0100,                  # version
-        page_count,         # pageCount
-        read_direction,     # readDirection
-        0,                  # hasMetadata
-        0,                  # hasThumbnails
-        0,                  # hasChapters
-        0,                  # currentPage
-        0,                  # metadataOffset
-        index_offset,       # indexOffset
-        data_offset,        # dataOffset
-        0                   # thumbOffset
-    )
-    assert len(xtc_header) == 48
-    print("index offset:", index_offset)
-    print("data offset:", data_offset)
-    print("header:", xtc_header)
+
 
     # Index table: <Q I H H> per page
     index_table = bytearray()
@@ -86,12 +67,41 @@ def build_xtc(png_paths, out_path, read_direction=0, force_size=(480,800)):
         index_table += entry
         rel_offset += len(blob)
 
+    has_thumbnail = 0 if thumbnail == 0 else 1
+    if has_thumbnail:
+        thumbOffset = rel_offset # TODO: properly index the correct page
+        thumbnail_blob = xtg_blobs[thumbnail-1]
+    else:
+        thumbOffset = 0
+
+    # XTC header: <4sHHBBBBIQQQQ> little-endian
+    xtc_header = struct.pack(
+        "<4sHHBBBBIQQQQ",
+        b"XTC\x00",         # mark
+        0x0100,                  # version
+        page_count,         # pageCount
+        read_direction,     # readDirection
+        0,                  # hasMetadata
+        has_thumbnail,      # hasThumbnails
+        0,                  # hasChapters
+        0,                  # currentPage
+        0,                  # metadataOffset
+        index_offset,       # indexOffset
+        data_offset,        # dataOffset
+        thumbOffset         # thumbOffset
+    )
+    assert len(xtc_header) == 48
+    print("index offset:", index_offset)
+    print("data offset:", data_offset)
+    print("header:", xtc_header)
     # Write file
     with open(out_path, "wb") as f:
         f.write(xtc_header)
         f.write(index_table)
         for blob in xtg_blobs:
             f.write(blob)
+        if has_thumbnail:
+            f.write(thumbnail_blob)
 
     print(f"Wrote XTC ({page_count} pages) to {out_path}")
 
