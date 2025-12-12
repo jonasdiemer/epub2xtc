@@ -35,11 +35,14 @@ echo "Converting EPUB to PDF..."
 # 1. Convert EPUB to PDF with Calibre:
 ebook-convert "$INPUT_EPUB" "$TEMP_PDF" \
     --custom-size 480x800 -u devicepixel \
-    --pdf-page-margin-top 0 \
-    --pdf-page-margin-bottom 0 \
-    --pdf-page-margin-left 0 \
-    --pdf-page-margin-right 0 \
-    --base-font-size 16 --extra-css justify.css > "$OUTPUT_REDIRECT"
+    --change-justification justify \
+    --pdf-hyphenate \
+    --base-font-size 19 \
+    --pdf-page-margin-top 4 \
+    --pdf-page-margin-bottom 4 \
+    --pdf-page-margin-left 2 \
+    --pdf-page-margin-right 2 \
+    > "$OUTPUT_REDIRECT"
     #--output-profile generic_eink_hd --use-profile-size 
 
 echo "Converting PDF to PNG files..."
